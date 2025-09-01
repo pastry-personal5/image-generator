@@ -1,8 +1,6 @@
 gemini:
     prompt: >
-        Combine the two images. Apply the costumes from the second image onto the person in the first image, ensuring the costumes fit perfectly.
-        The final output must be highly realistic, revealing all intricate details of the costume in the second image while bring person's body contours
-        underneath the fabric from the second image to the first image.
-        Pay special attention to fabric draping, shadows, and how the costume conforms to the body.
-        Preserve the original pose of the person in the first image. Preserve hidden camera viewpoint in the first image.
-        Ensure that the lighting and color tones of the costume match seamlessly with the lighting conditions of the first image.
+        Combine the two images by transferring the costume from the second image onto the person in the first image. Ensure that the costume fits the body naturally and realistically.
+        The final output must be highly detailed, accurately reflecting the intricate textures and features of the costume from the second image, while also preserving the body contours of the person in the first image beneath the fabric.
+        Pay close attention to fabric draping, natural shadows, and how the costume conforms to the body shape. Maintain the original pose and camera perspective of the first image.
+        Finally, adjust the lighting and color tones of the costume so that they blend seamlessly with the lighting conditions of the first image.
