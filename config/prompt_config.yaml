@@ -1,3 +1,2 @@
 gemini:
-    prompt: "Dress a person in the first image in costumes in the second image."
-    # prompt: "Dress a person in the first image in costumes in the second image. Conditions: Must be constume change. Don't change the person's hair style or hair color. Don't change the person's eyewear or hat if any."
+    prompt: "Combine the two images. Apply the costumes from the second image onto the person in the first image, ensuring the costumes fit perfectly. The final output must be highly realistic, revealing all intricate details of the costume in the second image while bring person's body contours underneath the fabric from the second image to the first image. Pay special attention to fabric draping, shadows, and how the costume conforms to the body."

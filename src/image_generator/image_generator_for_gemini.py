@@ -30,8 +30,8 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
             )
             logger.info(f"Image generation result: {r}")
             if item != input_output_file_path_spec.get_item_list()[-1]:
-                logger.info("Waiting for 60 seconds to avoid hitting rate limits...")
-                const_time_to_sleep_in_seconds = 60
+                const_time_to_sleep_in_seconds = 10
+                logger.info(f"Waiting for {const_time_to_sleep_in_seonds} seconds to avoid hitting rate limits...")
                 time.sleep(const_time_to_sleep_in_seconds)
         return True
 
