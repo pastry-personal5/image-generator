@@ -29,9 +29,10 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
                 prompt
             )
             logger.info(f"Image generation result: {r}")
-            logger.info("Waiting for 60 seconds to avoid hitting rate limits...")
-            const_time_to_sleep_in_seconds = 60
-            time.sleep(const_time_to_sleep_in_seconds)
+            if item != input_output_file_path_spec.get_item_list()[-1]:
+                logger.info("Waiting for 60 seconds to avoid hitting rate limits...")
+                const_time_to_sleep_in_seconds = 60
+                time.sleep(const_time_to_sleep_in_seconds)
         return True
 
     def _generate_one_image(self, input_source_file_path: str, input_reference_file_path: str, output_image_path: str, prompt: str) -> bool:
