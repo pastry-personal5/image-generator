@@ -1,5 +1,5 @@
 PYCODESTYLE_MAX_LINE_LENGTH=512
-SOURCE_CODE_PATH=./src/visit_n_sites_and_collect
+SOURCE_CODE_PATH=./src/image_generator
 .PHONY: all checkmake clean lint shellcheck style test unittest
 
 all: checkmake shellcheck style lint test
@@ -7,10 +7,7 @@ all: checkmake shellcheck style lint test
 checkmake:
 	checkmake ./Makefile
 
-clean: clean_visited_urls
-
-clean_visited_urls:
-	python -m src.visit_n_sites_and_collect.clean_visited_urls
+clean:
 
 lint:
 	pylint --rcfile=./.pylintrc ${SOURCE_CODE_PATH}/*.py || true

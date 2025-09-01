@@ -1,13 +1,16 @@
+
+
 """
 Define main functions for image generation.
 """
-from abc import ABC, abstractmethod
+from datetime import datetime
 import os
 import yaml
 
 from loguru import logger
 
-from .input_output_file_path_spec import InputOutputFilePathSpec
+from src.image_generator.image_generator_for_gemini import ImageGeneratorForGemini
+from src.image_generator.input_output_file_path_spec import InputOutputFilePathSpec
 
 
 def remove_file_extension(file_path):
@@ -20,7 +23,7 @@ def remove_file_extension(file_path):
 
 def get_date_and_time_part() -> str:
     """Get current date and time as a string."""
-    from datetime import datetime
+
     now = datetime.now()
     return now.strftime("%Y%m%d-%H%M%S")
 
@@ -47,7 +50,7 @@ class InputOutputFilePathSpecBuilderForDirectories():
         """
         const_file_extension_tuple = ('.png', '.jpg', '.jpeg', '.webp', '.avif')
         source_files = sorted([f for f in os.listdir(source_dir) if f.endswith(const_file_extension_tuple)])
-        reference_files = sorted([f for f in os.listdir(reference_dir) if f.endswith(const_file_extension_tuple)])        
+        reference_files = sorted([f for f in os.listdir(reference_dir) if f.endswith(const_file_extension_tuple)])
 
         logger.info(source_files)
         logger.info(reference_files)
@@ -60,7 +63,7 @@ class InputOutputFilePathSpecBuilderForDirectories():
                 output_file_path_list = [os.path.join(output_dir, output_image_name)]
                 spec.add_item_with_lists(input_file_path_list, output_file_path_list)
 
-        return spec   
+        return spec
 
 
 def load_config(config_path):
@@ -96,14 +99,20 @@ def do_main_task():
         logger.error("InputOutputFilePathSpec is None. Exiting.")
         return
 
-    from .image_generator_for_gemini import ImageGeneratorForGemini
+    input_output_file_path_spec.show_input_output_file_path_spec()
+
+    user_input = input('Input \'continue\' to proceed: ')
+    if user_input.strip().lower() != 'continue':
+        logger.info("Exiting as per user input.")
+        return
+
     image_generator = ImageGeneratorForGemini()
     image_generator.do_task_with_gemini(global_config['gemini'], prompt_config['gemini'], input_output_file_path_spec)
 
 
 def main():
-    do_main_task()    
+    do_main_task()
 
 
-if __name__ == "__main__": 
+if __name__ == "__main__":
     main()

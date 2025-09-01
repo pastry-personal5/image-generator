@@ -10,8 +10,8 @@ from loguru import logger
 from PIL import Image
 from io import BytesIO
 
-from .image_generator_base import ImageGeneratorBase
-from .input_output_file_path_spec import InputOutputFilePathSpec
+from src.image_generator.image_generator_base import ImageGeneratorBase
+from src.image_generator.input_output_file_path_spec import InputOutputFilePathSpec
 
 class ImageGeneratorForGemini(ImageGeneratorBase):
     def __init__(self):
@@ -54,9 +54,18 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
             )
             logger.info("Done.")
             self.show_reseponse_info(response)
+            if not response.candidates:
+                logger.error("No candidates in the response.")
+                return False
+            if not response.candidates[0].content:
+                logger.error("The first candidate has no content.")
+                return False
+            if not response.candidates[0].content.parts:
+                logger.error("The first candidate has no content parts.")
+                return False
             for part in response.candidates[0].content.parts:
                 if part.text is not None:
-                    print(part.text)
+                    logger.info(part.text)
                 elif part.inline_data is not None:
                     logger.info("Saving image...")
                     image = Image.open(BytesIO(part.inline_data.data))
@@ -84,6 +93,9 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
         logger.info(f"Response type: {type(response)}")
         logger.info(f"Response candidates count: {len(response.candidates)}")
         for i, candidate in enumerate(response.candidates):
+            if candidate.content is None:
+                logger.warning(f"Candidate {i} has no content.")
+                continue
             logger.info(f"Candidate {i} content parts count: {len(candidate.content.parts)}")
             for j, part in enumerate(candidate.content.parts):
                 if part.text is not None:

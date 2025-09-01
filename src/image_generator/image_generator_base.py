@@ -2,7 +2,7 @@
 
 """
 from abc import ABC, abstractmethod
-from src.image_generator.main import InputOutputFilePathSpec
+from src.image_generator.input_output_file_path_spec import InputOutputFilePathSpec
 
 class ImageGeneratorBase(ABC):
     @abstractmethod
