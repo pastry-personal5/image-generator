@@ -31,7 +31,7 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
             logger.info(f"Image generation result: {r}")
             if item != input_output_file_path_spec.get_item_list()[-1]:
                 const_time_to_sleep_in_seconds = 10
-                logger.info(f"Waiting for {const_time_to_sleep_in_seonds} seconds to avoid hitting rate limits...")
+                logger.info(f"Waiting for {const_time_to_sleep_in_seconds} seconds to avoid hitting rate limits...")
                 time.sleep(const_time_to_sleep_in_seconds)
         return True
 
@@ -54,7 +54,7 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
                 contents=[prompt, image0, image1],
             )
             logger.info("Done.")
-            self.show_reseponse_info(response)
+            self.show_response_info(response)
             if not response.candidates:
                 logger.error("No candidates in the response.")
                 return False
@@ -89,7 +89,7 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
             except IndexError:
                 break
 
-    def show_reseponse_info(self, response):
+    def show_response_info(self, response):
         logger.info(f"Response: {response}")
         logger.info(f"Response type: {type(response)}")
         logger.info(f"Response candidates count: {len(response.candidates)}")
