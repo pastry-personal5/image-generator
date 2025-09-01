@@ -1,0 +1,5 @@
+loguru==0.7.3
+Pillow==11.3.0
+protobuf==6.32.0
+PyYAML==6.0.2
+PyYAML==6.0.2

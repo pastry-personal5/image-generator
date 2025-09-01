@@ -1,0 +1,3 @@
+gemini:
+    prompt: "Dress a person in the first image in costumes in the second image."
+    # prompt: "Dress a person in the first image in costumes in the second image. Conditions: Must be constume change. Don't change the person's hair style or hair color. Don't change the person's eyewear or hat if any."
