@@ -48,7 +48,7 @@ class InputOutputFilePathSpecBuilderForDirectories():
         Build InputOutputFilePathSpec from input and output directories.
         Assumes input_dir contains pairs of images named as image_0000.png and image_0001.png.
         """
-        const_file_extension_tuple = ('.png', '.jpg', '.jpeg', '.webp', '.avif')
+        const_file_extension_tuple = (".png", ".jpg", ".jpeg", ".webp", ".avif")
         source_files = sorted([f for f in os.listdir(source_dir) if f.endswith(const_file_extension_tuple)])
         reference_files = sorted([f for f in os.listdir(reference_dir) if f.endswith(const_file_extension_tuple)])
 
@@ -101,7 +101,7 @@ def do_main_task():
 
     input_output_file_path_spec.show_input_output_file_path_spec()
 
-    user_input = input('Input \'continue\' to proceed: ')
+    user_input = input("Input 'continue' to proceed: ")
     if user_input.strip().lower() != 'continue':
         logger.info("Exiting as per user input.")
         return

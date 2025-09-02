@@ -1,10 +1,12 @@
 """
 Define ImageGeneratorForGemini class.
 """
+import os
 import pprint
 import time
 from typing import Optional
 from google import genai
+from google.genai import types
 from google.genai.errors import ClientError, ServerError
 from loguru import logger
 from PIL import Image
@@ -18,25 +20,54 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
     def __init__(self):
         self.client: Optional[genai.Client] = None
 
-    def generate_image(self, input_output_file_path_spec: InputOutputFilePathSpec, prompt: str) -> bool:
+    def generate_one_batch_of_images(self, input_output_file_path_spec: InputOutputFilePathSpec, prompt: str) -> bool:
+        count = 0
+        count_success = 0
+        count_failure = 0
         if not self.client:
             logger.error("Gemini client is not initialized.")
             return False
         for item in input_output_file_path_spec.get_item_list():
-            r = self._generate_one_image(
+            r = self._generate_images_using_api_call(
                 item['input_file_path_list'][0],
                 item['input_file_path_list'][1],
                 item['output_file_path_list'][0],
                 prompt
             )
             logger.info(f"Image generation result: {r}")
+            count += 1
+            if r:
+                count_success += 1
+            else:
+                count_failure += 1
             if item != input_output_file_path_spec.get_item_list()[-1]:
-                const_time_to_sleep_in_seconds = 10
+                const_time_to_sleep_in_seconds = 8
                 logger.info(f"Waiting for {const_time_to_sleep_in_seconds} seconds to avoid hitting rate limits...")
                 time.sleep(const_time_to_sleep_in_seconds)
+            logger.info(f"So far... total requests: {count}, Success: {count_success}, Failure: {count_failure}")
         return True
 
-    def _generate_one_image(self, input_source_file_path: str, input_reference_file_path: str, output_image_path: str, prompt: str) -> bool:
+    def _get_generate_content_config(self):
+        # As of 2025-09-03, a substring "IMAGE" in category is not supported yet.
+        # i.e. please note that HARM_CATEGORY_IMAGE_HARASSMENT nor HARM_CATEGORY_IMAGE_SEXUALLY_EXPLICIT are not supported yet.
+        # Instead, use text-related categories only.
+        # For the latest information, please refer to: https://developers.generativeai.google/api/gemini/reference/rest/v1/models/generateContent
+        generate_content_config = types.GenerateContentConfig(
+            temperature = 1,
+            top_p = 0.95,
+            max_output_tokens = 32768,
+            response_modalities = ["TEXT", "IMAGE"],
+            safety_settings = [types.SafetySetting(
+                category="HARM_CATEGORY_HARASSMENT",
+                threshold=types.HarmBlockThreshold.BLOCK_NONE
+            ),types.SafetySetting(
+                category="HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                threshold=types.HarmBlockThreshold.BLOCK_NONE
+            )],
+        )
+        return generate_content_config
+
+    def _generate_images_using_api_call(self, input_source_file_path: str, input_reference_file_path: str, output_image_path: str, prompt: str) -> bool:
         try:
             image0 = Image.open(input_source_file_path)
         except Exception as e:
@@ -47,39 +78,66 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
         except Exception as e:
             logger.error(f"Failed to open image at {input_reference_file_path}: {e}")
             return False
-        const_model_name = "models/gemini-2.5-flash-image-preview"
+
+        count_saved = 0
         try:
+            generate_content_config = self._get_generate_content_config()
             logger.info("Calling Gemini API...")
+            const_model_name = "models/gemini-2.5-flash-image-preview"
             response = self.client.models.generate_content(
                 model=const_model_name,
                 contents=[prompt, image0, image1],
+                config=generate_content_config,
             )
             logger.info("Done.")
             self.show_response_info(response)
             if not response.candidates:
                 logger.error("No candidates in the response.")
                 return False
-            if not response.candidates[0].content:
-                logger.error("The first candidate has no content.")
+            number_of_candidates = len(response.candidates)
+            logger.info(f"Number of candidates: {number_of_candidates}")
+            if number_of_candidates == 0:
+                logger.error("No candidates returned from the API.")
                 return False
-            if not response.candidates[0].content.parts:
-                logger.error("The first candidate has no content parts.")
-                return False
-            for part in response.candidates[0].content.parts:
-                if part.text is not None:
-                    logger.info(part.text)
-                elif part.inline_data is not None:
-                    logger.info("Saving image...")
-                    image = Image.open(BytesIO(part.inline_data.data))
-                    image.save(output_image_path)
-                    logger.info("Saved.")
+
+            output_image_path_list = []
+            for i in range(number_of_candidates):
+                if i == 0:
+                    output_image_path_list.append(output_image_path)
+                else:
+                    output_image_name_modified = f"{os.path.splitext(os.path.basename(output_image_path))[0]}.candidate.{i}{os.path.splitext(output_image_path)[1]}"
+                    output_image_path_modified = os.path.join(os.path.dirname(output_image_path), output_image_name_modified)
+                    output_image_path_list.append(output_image_path_modified)
+
+            index = 0
+            for c in response.candidates:
+                logger.info(f"Candidate: {c}")
+                if not c.content:
+                    logger.error("The candidate has no content.")
+                    continue
+                if not c.content.parts:
+                    logger.error("The candidate has no content parts.")
+                    continue
+                for part in c.content.parts:
+                    if part.text is not None:
+                        logger.info(part.text)
+                    elif part.inline_data is not None:
+                        logger.info("Saving image...")
+                        image = Image.open(BytesIO(part.inline_data.data))
+                        image.save(output_image_path_list[index])
+                        logger.info("Saved.")
+                        count_saved += 1
+                index += 1
         except ServerError as e:
             logger.error(f"Gemini server error: {e}")
             return False
         except ClientError as e:
             logger.error(f"Gemini API error: {e}")
             return False
-        return True
+        if count_saved > 0:
+            return True
+        else:
+            return False
 
     def list_all_models(self):
         pager = self.client.models.list(config={'page_size': 32})
@@ -114,7 +172,7 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
 
     def _initialize_gemini_client(self, gemini_config: dict) -> bool:
         if self.client is None:
-            api_key = gemini_config.get('api_key')
+            api_key = gemini_config.get("api_key")
             if not api_key:
                 logger.error("Gemini API key is missing in the configuration.")
                 return False
@@ -125,5 +183,5 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
         r = self._initialize_gemini_client(gemini_config)
         if not r:
             return False
-        prompt = prompt_config.get('prompt')
-        return self.generate_image(input_output_file_path_spec, prompt)
+        prompt = prompt_config.get("prompt")
+        return self.generate_one_batch_of_images(input_output_file_path_spec, prompt)

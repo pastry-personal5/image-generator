@@ -9,5 +9,5 @@ from src.image_generator.input_output_file_path_spec import InputOutputFilePathS
 
 class ImageGeneratorBase(ABC):
     @abstractmethod
-    def generate_image(self, input_output_file_path_spec: InputOutputFilePathSpec, prompt: str) -> bool:
+    def generate_one_batch_of_images(self, input_output_file_path_spec: InputOutputFilePathSpec, prompt: str) -> bool:
         pass
