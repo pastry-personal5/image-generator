@@ -1,10 +1,9 @@
-
-
 """
 Define main functions for image generation.
 """
 from datetime import datetime
 import os
+from typing import Optional
 import yaml
 
 from loguru import logger
@@ -49,8 +48,12 @@ class InputOutputFilePathSpecBuilderForDirectories():
         Assumes input_dir contains pairs of images named as image_0000.png and image_0001.png.
         """
         const_file_extension_tuple = (".png", ".jpg", ".jpeg", ".webp", ".avif")
-        source_files = sorted([f for f in os.listdir(source_dir) if f.endswith(const_file_extension_tuple)])
-        reference_files = sorted([f for f in os.listdir(reference_dir) if f.endswith(const_file_extension_tuple)])
+        try:
+            source_files = sorted([f for f in os.listdir(source_dir) if f.endswith(const_file_extension_tuple)])
+            reference_files = sorted([f for f in os.listdir(reference_dir) if f.endswith(const_file_extension_tuple)])
+        except Exception as e:
+            logger.error(f"Error reading directories: {e}")
+            return None
 
         logger.info(source_files)
         logger.info(reference_files)
@@ -82,10 +85,7 @@ def build_input_output_file_path_spec() -> InputOutputFilePathSpec:
     return builder.build(const_source_dir, const_reference_dir, const_output_dir)
 
 
-def do_main_task():
-    """
-    Main task function to load config and perform image generation.
-    """
+def get_global_config_and_prompt_config():
     global_config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', 'config', 'global_config.yaml')
     global_config = load_config(global_config_path)
     logger.info(f"Loaded global config: {global_config}")
@@ -93,19 +93,47 @@ def do_main_task():
     prompt_config = load_config(prompt_config_path)
     logger.info(f"Loaded prompt config: {prompt_config}")
 
+    return global_config, prompt_config
+
+
+def build_and_show_input_output_file_path_spec() -> Optional[InputOutputFilePathSpec]:
     input_output_file_path_spec = build_input_output_file_path_spec()
 
     if input_output_file_path_spec is None:
         logger.error("InputOutputFilePathSpec is None. Exiting.")
-        return
+        return None
 
     input_output_file_path_spec.show_input_output_file_path_spec()
 
-    user_input = input("Input 'continue' to proceed: ")
-    if user_input.strip().lower() != 'continue':
-        logger.info("Exiting as per user input.")
-        return
+    return input_output_file_path_spec
 
+
+def get_user_input_to_continue() -> bool:
+    """
+    Get user input to continue or exit.
+    """
+    while True:
+        user_input = input("Input 'continue' to proceed or 'exit' to quit: ")
+        if user_input.strip().lower() == 'continue':
+            return True
+        elif user_input.strip().lower() == 'exit':
+            logger.info("Exiting as per user input.")
+            return False
+        else:
+            print("Invalid input. Please type 'continue' or 'exit'.")
+
+
+def do_main_task():
+    """
+    Main task function to load config and perform image generation.
+    """
+    (global_config, prompt_config) = get_global_config_and_prompt_config()
+    input_output_file_path_spec = build_and_show_input_output_file_path_spec()
+    if not input_output_file_path_spec:
+        return
+    flag_continue = get_user_input_to_continue()
+    if not flag_continue:
+        return
     image_generator = ImageGeneratorForGemini()
     image_generator.do_task_with_gemini(global_config['gemini'], prompt_config['gemini'], input_output_file_path_spec)
 
