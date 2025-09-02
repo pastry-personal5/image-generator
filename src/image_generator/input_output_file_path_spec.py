@@ -5,6 +5,7 @@ import os
 
 from loguru import logger
 
+
 class InputOutputFilePathSpec:
 
     def __init__(self):

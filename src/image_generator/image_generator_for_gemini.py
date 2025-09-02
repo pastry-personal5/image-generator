@@ -5,13 +5,14 @@ import pprint
 import time
 from typing import Optional
 from google import genai
-from google.genai.errors import ClientError
+from google.genai.errors import ClientError, ServerError
 from loguru import logger
 from PIL import Image
 from io import BytesIO
 
 from src.image_generator.image_generator_base import ImageGeneratorBase
 from src.image_generator.input_output_file_path_spec import InputOutputFilePathSpec
+
 
 class ImageGeneratorForGemini(ImageGeneratorBase):
     def __init__(self):
@@ -72,6 +73,9 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
                     image = Image.open(BytesIO(part.inline_data.data))
                     image.save(output_image_path)
                     logger.info("Saved.")
+        except ServerError as e:
+            logger.error(f"Gemini server error: {e}")
+            return False
         except ClientError as e:
             logger.error(f"Gemini API error: {e}")
             return False
