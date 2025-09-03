@@ -20,11 +20,30 @@ from src.image_generator.input_output_file_path_spec import InputOutputFilePathS
 def filter_log_message_for_gemini_api_call(record):
     return "[GEMINI_API_CALL]" in record["message"]
 
+
+class Singleton(type):
+    _instances = {}
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+        return cls._instances[cls]
+
+
+class LoggerSingletonForGeminiAPICall(metaclass=Singleton):
+
+    def __init__(self):
+        pass
+
+    def init_logger(self):
+        logger.add("gemini_api_call.log", rotation="10 MB", compression="zip", level="INFO", filter=filter_log_message_for_gemini_api_call)
+
+
 class ImageGeneratorForGemini(ImageGeneratorBase):
 
     def __init__(self):
         self.client: Optional[genai.Client] = None
-        logger.add("gemini_api_call.log", rotation="10 MB", compression="zip", level="INFO", filter=filter_log_message_for_gemini_api_call)
+        self.extra_gemini_api_logger = LoggerSingletonForGeminiAPICall()
+        self.extra_gemini_api_logger.init_logger()
 
     def generate_one_batch_of_images(self, input_output_file_path_spec: InputOutputFilePathSpec, prompt: str) -> bool:
         len_of_generation_request = len(input_output_file_path_spec.get_item_list())
