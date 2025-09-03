@@ -28,7 +28,7 @@ def get_output_image_names(source_image_name: str, reference_image_name: str) ->
     """Generate output image path based on input image names."""
     date_and_time_part = get_date_and_time_part()
     # Order matters.
-    file_name_0000 =  remove_file_extension(reference_image_name) + '-applied-to-' + remove_file_extension(source_image_name) + '-' + date_and_time_part + '.png'
+    file_name_0000 =  remove_file_extension(reference_image_name) + '-transferred-to-' + remove_file_extension(source_image_name) + '-' + date_and_time_part + '.png'
     file_name_0001 =  remove_file_extension(source_image_name) + '-transferred-from-' + remove_file_extension(reference_image_name) + '-' + date_and_time_part + '.png'
     return file_name_0000, file_name_0001
 
