@@ -17,9 +17,14 @@ from src.image_generator.image_generator_base import ImageGeneratorBase
 from src.image_generator.input_output_file_path_spec import InputOutputFilePathSpec
 
 
+def filter_log_message_for_gemini_api_call(record):
+    return "[GEMINI_API_CALL]" in record["message"]
+
 class ImageGeneratorForGemini(ImageGeneratorBase):
+
     def __init__(self):
         self.client: Optional[genai.Client] = None
+        logger.add("gemini_api_call.log", rotation="10 MB", compression="zip", level="INFO", filter=filter_log_message_for_gemini_api_call)
 
     def generate_one_batch_of_images(self, input_output_file_path_spec: InputOutputFilePathSpec, prompt: str) -> bool:
         len_of_generation_request = len(input_output_file_path_spec.get_item_list())
@@ -131,6 +136,9 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
                         image.save(output_image_paths[0])
                         image.save(output_image_paths[1])
                         logger.info("Saved.")
+                        # @FIXME(dennis.oh) Escape strings properly.
+                        prompt_to_log = prompt.strip()
+                        logger.info(f"\"[GEMINI_API_CALL]\",\"{output_image_paths[0]}\",\"{output_image_paths[1]}\",\"{input_source_file_path}\",\"{input_reference_file_path}\",\"{prompt_to_log}\"")
                         count_saved += 1
                 index += 1
         except ServerError as e:
