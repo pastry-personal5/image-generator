@@ -5,6 +5,7 @@ import os
 import pprint
 import time
 from typing import Optional
+
 from google import genai
 from google.genai import types
 from google.genai.errors import ClientError, ServerError
@@ -21,6 +22,7 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
         self.client: Optional[genai.Client] = None
 
     def generate_one_batch_of_images(self, input_output_file_path_spec: InputOutputFilePathSpec, prompt: str) -> bool:
+        len_of_generation_request = len(input_output_file_path_spec.get_item_list())
         count = 0
         count_success = 0
         count_failure = 0
@@ -31,7 +33,7 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
             r = self._generate_images_using_api_call(
                 item['input_file_path_list'][0],
                 item['input_file_path_list'][1],
-                item['output_file_path_list'][0],
+                item['output_file_path_list'],
                 prompt
             )
             logger.info(f"Image generation result: {r}")
@@ -44,7 +46,7 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
                 const_time_to_sleep_in_seconds = 8
                 logger.info(f"Waiting for {const_time_to_sleep_in_seconds} seconds to avoid hitting rate limits...")
                 time.sleep(const_time_to_sleep_in_seconds)
-            logger.info(f"So far... total requests: {count}, Success: {count_success}, Failure: {count_failure}")
+            logger.info(f"Among: {len_of_generation_request} So far... total requests: {count}, Success: {count_success}, Failure: {count_failure}")
         return True
 
     def _get_generate_content_config(self):
@@ -56,26 +58,26 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
             temperature = 1,
             top_p = 0.95,
             max_output_tokens = 32768,
-            response_modalities = ["TEXT", "IMAGE"],
+            response_modalities = ["IMAGE"],
             safety_settings = [types.SafetySetting(
-                category="HARM_CATEGORY_HARASSMENT",
+                category=types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
                 threshold=types.HarmBlockThreshold.BLOCK_NONE
             ),types.SafetySetting(
-                category="HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                category=types.HarmCategory.HARM_CATEGORY_HARASSMENT,
                 threshold=types.HarmBlockThreshold.BLOCK_NONE
             )],
         )
         return generate_content_config
 
-    def _generate_images_using_api_call(self, input_source_file_path: str, input_reference_file_path: str, output_image_path: str, prompt: str) -> bool:
+    def _generate_images_using_api_call(self, input_source_file_path: str, input_reference_file_path: str, output_file_path_list_as_arg: list[str], prompt: str) -> bool:
         try:
             image0 = Image.open(input_source_file_path)
-        except Exception as e:
+        except (FileNotFoundError, OSError) as e:
             logger.error(f"Failed to open image at {input_source_file_path}: {e}")
             return False
         try:
             image1 = Image.open(input_reference_file_path)
-        except Exception as e:
+        except (FileNotFoundError, OSError) as e:
             logger.error(f"Failed to open image at {input_reference_file_path}: {e}")
             return False
 
@@ -103,11 +105,12 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
             output_image_path_list = []
             for i in range(number_of_candidates):
                 if i == 0:
-                    output_image_path_list.append(output_image_path)
+                    output_image_path_list.append(output_file_path_list_as_arg)
                 else:
-                    output_image_name_modified = f"{os.path.splitext(os.path.basename(output_image_path))[0]}.candidate.{i}{os.path.splitext(output_image_path)[1]}"
-                    output_image_path_modified = os.path.join(os.path.dirname(output_image_path), output_image_name_modified)
-                    output_image_path_list.append(output_image_path_modified)
+                    for o in output_file_path_list_as_arg:
+                        output_image_name_modified = f"{os.path.splitext(os.path.basename(o))[0]}.candidate.{i}{os.path.splitext(o)[1]}"
+                        output_image_path_modified = os.path.join(os.path.dirname(o), output_image_name_modified)
+                        output_image_path_list.append(output_image_path_modified)
 
             index = 0
             for c in response.candidates:
@@ -124,7 +127,9 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
                     elif part.inline_data is not None:
                         logger.info("Saving image...")
                         image = Image.open(BytesIO(part.inline_data.data))
-                        image.save(output_image_path_list[index])
+                        output_image_paths = output_image_path_list[index]
+                        image.save(output_image_paths[0])
+                        image.save(output_image_paths[1])
                         logger.info("Saved.")
                         count_saved += 1
                 index += 1

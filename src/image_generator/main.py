@@ -1,7 +1,6 @@
 """
 Define main functions for image generation.
 """
-from datetime import datetime
 import os
 from typing import Optional
 import yaml
@@ -10,70 +9,14 @@ from loguru import logger
 
 from src.image_generator.image_generator_for_gemini import ImageGeneratorForGemini
 from src.image_generator.input_output_file_path_spec import InputOutputFilePathSpec
-
-
-def remove_file_extension(file_path):
-    """
-    Removes the file extension from a file path.
-    Example: 'path/to/image.jpg' -> 'path/to/image'
-    """
-    return os.path.splitext(file_path)[0]
-
-
-def get_date_and_time_part() -> str:
-    """Get current date and time as a string."""
-
-    now = datetime.now()
-    return now.strftime("%Y%m%d-%H%M%S")
-
-
-def get_output_image_name(source_image_name: str, reference_image_name: str) -> str:
-    """Generate output image path based on input image names."""
-    date_and_time_part = get_date_and_time_part()
-    # Order matters.
-    return remove_file_extension(reference_image_name) + '-with-' + remove_file_extension(source_image_name) + '-' + date_and_time_part + '.png'
-
-
-class InputOutputFilePathSpecBuilderForDirectories():
-    """
-    Build InputOutputFilePathSpec from input and output directories.
-    """
-
-    def __init__(self):
-        pass
-
-    def build(self, source_dir: str, reference_dir: str, output_dir: str) -> InputOutputFilePathSpec | None:
-        """
-        Build InputOutputFilePathSpec from input and output directories.
-        Assumes input_dir contains pairs of images named as image_0000.png and image_0001.png.
-        """
-        const_file_extension_tuple = (".png", ".jpg", ".jpeg", ".webp", ".avif")
-        try:
-            source_files = sorted([f for f in os.listdir(source_dir) if f.endswith(const_file_extension_tuple)])
-            reference_files = sorted([f for f in os.listdir(reference_dir) if f.endswith(const_file_extension_tuple)])
-        except Exception as e:
-            logger.error(f"Error reading directories: {e}")
-            return None
-
-        logger.info(source_files)
-        logger.info(reference_files)
-
-        spec = InputOutputFilePathSpec()
-        for source in source_files:
-            for reference in reference_files:
-                output_image_name = get_output_image_name(source, reference)
-                input_file_path_list = [os.path.join(source_dir, source), os.path.join(reference_dir, reference)]
-                output_file_path_list = [os.path.join(output_dir, output_image_name)]
-                spec.add_item_with_lists(input_file_path_list, output_file_path_list)
-
-        return spec
+from src.image_generator.input_output_file_path_spec_builder import InputOutputFilePathSpecBuilderForDirectories
 
 
 def load_config(config_path):
     """
     Load YAML configuration from the specified path.
     """
-    with open(config_path, 'r') as f:
+    with open(config_path, encoding="utf-8", mode="r") as f:
         return yaml.safe_load(f)
 
 
