@@ -47,6 +47,20 @@ class FilePathBuilder():
     def set_reference_to_input_output_file_path_spec(self, input_output_file_path_spec: InputOutputFilePathSpec) -> None:
         self.input_output_file_path_spec = input_output_file_path_spec
 
+    def build_output_file_path_list_of_list(self, number_of_candidates: int, output_file_path_list_as_arg: list[str]) -> list[list[str]]:
+        output_image_path_list_of_list = []
+        for i in range(number_of_candidates):
+            if i == 0:
+                output_image_path_list_of_list.append(output_file_path_list_as_arg)
+            else:
+                output_file_path_list_modified = []
+                for o in output_file_path_list_as_arg:
+                    output_image_name_modified = f"{os.path.splitext(os.path.basename(o))[0]}.candidate.{i}{os.path.splitext(o)[1]}"
+                    output_image_path_modified = os.path.join(os.path.dirname(o), output_image_name_modified)
+                    output_file_path_list_modified.append(output_image_path_modified)
+                output_image_path_list_of_list.append(output_file_path_list_modified)
+        return output_image_path_list_of_list
+
 
 class ImageGeneratorForGemini(ImageGeneratorBase):
 
@@ -77,7 +91,7 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
             else:
                 count_failure += 1
             if item != input_output_file_path_spec.get_item_list()[-1]:
-                const_time_to_sleep_in_seconds = 8
+                const_time_to_sleep_in_seconds = 10
                 logger.info(f"Waiting for {const_time_to_sleep_in_seconds} seconds to avoid hitting rate limits...")
                 time.sleep(const_time_to_sleep_in_seconds)
             logger.info(f"Among: {len_of_generation_request} So far... total requests: {count}, Success: {count_success}, Failure: {count_failure}")
@@ -89,17 +103,27 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
         # Instead, use text-related categories only.
         # For the latest information, please refer to: https://developers.generativeai.google/api/gemini/reference/rest/v1/models/generateContent
         generate_content_config = types.GenerateContentConfig(
-            temperature = 1,
-            top_p = 0.95,
-            max_output_tokens = 32768,
+            temperature = 0.1,
+            top_p = 0.2,
             response_modalities = ["IMAGE"],
-            safety_settings = [types.SafetySetting(
-                category=types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-                threshold=types.HarmBlockThreshold.BLOCK_NONE
-            ),types.SafetySetting(
-                category=types.HarmCategory.HARM_CATEGORY_HARASSMENT,
-                threshold=types.HarmBlockThreshold.BLOCK_NONE
-            )],
+            safety_settings=[
+                types.SafetySetting(
+                    category="HARM_CATEGORY_HARASSMENT",
+                    threshold=types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                ),
+                types.SafetySetting(
+                    category="HARM_CATEGORY_HATE_SPEECH",
+                    threshold=types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                ),
+                types.SafetySetting(
+                    category="HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                    threshold=types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                ),
+                types.SafetySetting(
+                    category="HARM_CATEGORY_DANGEROUS_CONTENT",
+                    threshold=types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                ),
+            ],
         )
         return generate_content_config
 
@@ -110,7 +134,7 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
                 image_file = Image.open(input_file_path)
             except (FileNotFoundError, OSError) as e:
                 logger.error(f"Failed to open image at {input_file_path}: {e}")
-                return (False, None, None)
+                return (False, None)
             input_image_file_list.append(image_file)
         return (True, input_image_file_list)
 
@@ -121,21 +145,23 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
         result = self._generate_and_write_output_images(prompt, input_image_file_list, input_file_path_list_as_arg, output_file_path_list_as_arg)
         return result
 
-    def _log_gemini_api_call(self, prompt: str, input_file_path_list: list[str], output_image_paths: list[str]) -> None:
+    def _log_gemini_api_call(self, prompt: str, config_for_generation: types.GenerateContentConfig, input_file_path_list: list[str], output_image_paths: list[str]) -> None:
         prompt_to_log = prompt.strip()
         string_to_log = f"\"[GEMINI_API_CALL]\","
         for output_image_path in output_image_paths:
             string_to_log += f"\"{output_image_path}\","
         for input_file_path in input_file_path_list:
             string_to_log += f"\"{input_file_path}\","
-        string_to_log += f"\"{prompt_to_log}\""
+        string_to_log += f"\"{prompt_to_log}\","
+        string_to_log += f"\"{config_for_generation.temperature}\","
+        string_to_log += f"\"{config_for_generation.top_p}\""
         logger.info(string_to_log)
 
     def _generate_and_write_output_images(self, prompt: str, input_image_file_list: list[Image.Image], input_file_path_list_as_arg: list[str], output_file_path_list_as_arg: list[str]) -> bool:
 
         count_saved = 0
         try:
-            generate_content_config = self._get_generate_content_config()
+            config_for_generation = self._get_generate_content_config()
             const_model_name = "models/gemini-2.5-flash-image-preview"
             contents = []
             contents.append(prompt)
@@ -145,7 +171,7 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
             response = self.client.models.generate_content(
                 model=const_model_name,
                 contents=contents,
-                config=generate_content_config,
+                config=config_for_generation,
             )
             logger.info("Done.")
             self._show_response_info(response)
@@ -158,15 +184,7 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
                 logger.error("No candidates returned from the API.")
                 return False
 
-            output_image_path_list = []
-            for i in range(number_of_candidates):
-                if i == 0:
-                    output_image_path_list.append(output_file_path_list_as_arg)
-                else:
-                    for o in output_file_path_list_as_arg:
-                        output_image_name_modified = f"{os.path.splitext(os.path.basename(o))[0]}.candidate.{i}{os.path.splitext(o)[1]}"
-                        output_image_path_modified = os.path.join(os.path.dirname(o), output_image_name_modified)
-                        output_image_path_list.append(output_image_path_modified)
+            output_image_path_list_of_list = self.file_path_builder.build_output_file_path_list_of_list(number_of_candidates, output_file_path_list_as_arg)
 
             index = 0
             for c in response.candidates:
@@ -183,11 +201,11 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
                     elif part.inline_data is not None:
                         logger.info("Saving image...")
                         image = Image.open(BytesIO(part.inline_data.data))
-                        output_image_paths = output_image_path_list[index]
+                        output_image_paths = output_image_path_list_of_list[index]
                         for output_image_path in output_image_paths:
                             image.save(output_image_path)
                         logger.info("Saved.")
-                        self._log_gemini_api_call(prompt, input_file_path_list_as_arg, output_image_paths)
+                        self._log_gemini_api_call(prompt, config_for_generation, input_file_path_list_as_arg, output_image_paths)
                         count_saved += 1
                 index += 1
         except ServerError as e:
@@ -230,6 +248,9 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
         return True
 
     def list_all_models(self):
+        """
+        List all available models from the Gemini API.
+        """
         pager = self.client.models.list(config={'page_size': 32})
         while True:
             for p in pager:
@@ -242,6 +263,9 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
                 break
 
     def do_generation(self, model_specific_config: dict, prompt: str, input_output_file_path_spec: InputOutputFilePathSpec) -> bool:
+        """
+        Perform image generation using the Gemini API.
+        """
         r = self._initialize_gemini_client(model_specific_config)
         if not r:
             return False
