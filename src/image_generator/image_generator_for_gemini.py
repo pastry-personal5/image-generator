@@ -36,7 +36,7 @@ class LoggerSingletonForGeminiAPICall(metaclass=Singleton):
         pass
 
     def init_logger(self):
-        logger.add("gemini_api_call.log", rotation="10 MB", compression="zip", level="INFO", filter=filter_log_message_for_gemini_api_call)
+        logger.add("./logs/gemini_api_call.log", rotation="10 MB", compression="zip", level="INFO", filter=filter_log_message_for_gemini_api_call)
 
 
 class FilePathBuilder():
