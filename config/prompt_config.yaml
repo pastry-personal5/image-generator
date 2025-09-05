@@ -1,6 +1,6 @@
-gemini:
+gemini-image-editing:
     prompt: >
-        Slim the person in the first image significantly.
-        Then, transfer the costume from the second image onto this slimmer person in the first image.
-        Ensure the costume fits naturally, with realistic fabric draping, shadows, and textures.
-        Maintain the original pose, camera perspective, lighting, and color tones of the first image.
+        Edit the person in the image to make them look more attractive and appealing.
+gemini-costume-transfer:
+    prompt: >
+        Transfer the costume from the second image onto this slimmer person in the first image.

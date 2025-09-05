@@ -33,7 +33,39 @@ def get_output_image_names(source_image_name: str, reference_image_name: str) ->
     return file_name_0000, file_name_0001
 
 
-class InputOutputFilePathSpecBuilderForDirectories:
+class InputOutputFilePathSpecBuilderForSingleDirectory:
+    """
+    Build InputOutputFilePathSpec from input and output directories.
+    """
+
+    def __init__(self):
+        pass
+
+    def build(self, source_dir: str, output_dir: str) -> InputOutputFilePathSpec | None:
+        """
+        Build InputOutputFilePathSpec from input and output directories.
+        Assumes input_dir contains images named as image_0000.png, image_0001.png, etc.
+        """
+        const_file_extension_tuple = (".png", ".jpg", ".jpeg", ".webp", ".avif")
+        try:
+            source_files = sorted([f for f in os.listdir(source_dir) if f.endswith(const_file_extension_tuple)])
+        except (FileNotFoundError, NotADirectoryError, PermissionError, OSError) as e:
+            logger.error(f"Error reading directory: {e}")
+            return None
+
+        logger.info(source_files)
+
+        spec = InputOutputFilePathSpec()
+        for source in source_files:
+            output_image_name = remove_file_extension(source) + '-' + get_date_and_time_part() + '.png'
+            input_file_path_list = [os.path.join(source_dir, source)]
+            output_file_path_list = [os.path.join(output_dir, output_image_name)]
+            spec.add_item_with_lists(input_file_path_list, output_file_path_list)
+
+        return spec
+
+
+class InputOutputFilePathSpecBuilderForPairOfDirectories:
     """
     Build InputOutputFilePathSpec from input and output directories.
     """

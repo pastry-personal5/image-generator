@@ -11,3 +11,7 @@ class ImageGeneratorBase(ABC):
     @abstractmethod
     def generate_one_batch_of_images(self, input_output_file_path_spec: InputOutputFilePathSpec, prompt: str) -> bool:
         pass
+
+    @abstractmethod
+    def do_generation(self, model_specific_config: dict, prompt: str, input_output_file_path_spec: InputOutputFilePathSpec) -> bool:
+        pass
