@@ -39,6 +39,15 @@ class GlobalConfigValidator:
         ]:
             logger.error(f"Invalid 'type' in 'input_output_spec': {config['global']['input_output_spec']['type']}")
             return False
+
+        # Gemini-specific
+        if config.get('gemini'):
+            if config['gemini'].get('api_key'):
+                const_default_gemini_api_key_template_string = "YOUR GEMINI API KEY"
+                if config['gemini']['api_key'] == const_default_gemini_api_key_template_string:
+                    logger.error("Please specify a Gemini API key.")
+                    return False
+
         return True
 
 
