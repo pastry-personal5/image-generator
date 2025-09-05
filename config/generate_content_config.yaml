@@ -1,6 +1,10 @@
 gemini-image-editing:
     prompt: >
         Edit the person in the image to make them look more attractive and appealing.
+    # temperature:  # Omitted, intentionally.
+    # top_p:  # Omitted, intentionally.
 gemini-costume-transfer:
     prompt: >
         Transfer the costume from the second image onto this slimmer person in the first image.
+    temperature: 0.6
+    top_p: 0.95

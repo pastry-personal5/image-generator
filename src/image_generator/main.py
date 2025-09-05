@@ -7,6 +7,7 @@ import yaml
 
 from loguru import logger
 
+from src.image_generator.image_generator_generate_content_config import ImageGeneratorGenerateContentConfig
 from src.image_generator.image_generator_for_gemini import ImageGeneratorForGemini
 from src.image_generator.input_output_file_path_spec import InputOutputFilePathSpec
 from src.image_generator.input_output_file_path_spec_builder import InputOutputFilePathSpecBuilderForPairOfDirectories
@@ -66,29 +67,36 @@ class MainController:
         with open(config_path, encoding="utf-8", mode="r") as f:
             return yaml.safe_load(f)
 
-    def _get_global_config_and_prompt(self) -> Optional[tuple[GlobalConfig, dict]]:
+    def _get_global_config_and_generate_content_config(self) -> Optional[tuple[GlobalConfig, ImageGeneratorGenerateContentConfig]]:
         """
-        Load global and prompt configurations.
+        Load global and generate content configurations.
         """
         global_config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', 'config', 'global_config.yaml')
         global_config = self._load_config(global_config_path)
         logger.info(f"Loaded global config: {global_config}")
-        prompt_config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', 'config', 'prompt_config.yaml')
-        prompt_config = self._load_config(prompt_config_path)
-        logger.info(f"Loaded prompt config: {prompt_config}")
+        generate_content_config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', 'config', 'generate_content_config.yaml')
+        generate_content_config = self._load_config(generate_content_config_path)
+        logger.info(f"Loaded prompt config: {generate_content_config}")
 
         global_config_object = GlobalConfig(global_config)
         if not global_config_object.validate():
             logger.error("Invalid global configuration. Exiting.")
             return None, None
 
-        prompt_key = global_config_object.config['global'].get('prompt_key', 'default')
-        if prompt_key not in prompt_config:
-            logger.error(f"Prompt key '{prompt_key}' not found in prompt configuration. Exiting.")
+        generate_content_config_key = global_config_object.config['global'].get('generate_content_config_key', 'default')
+        if generate_content_config_key not in generate_content_config:
+            logger.error(f"Generate content config key '{generate_content_config_key}' not found in prompt configuration. Exiting.")
             return None, None
-        prompt = prompt_config[prompt_key].get('prompt', None)
+        prompt = generate_content_config[generate_content_config_key].get('prompt', None)
 
-        return global_config_object, prompt
+        image_generator_generate_content_config = ImageGeneratorGenerateContentConfig()
+        image_generator_generate_content_config.set_prompt(prompt)
+        if 'temperature' in generate_content_config[generate_content_config_key]:
+            image_generator_generate_content_config.set_temperature(generate_content_config[generate_content_config_key]['temperature'])
+        if 'top_p' in generate_content_config[generate_content_config_key]:
+            image_generator_generate_content_config.set_top_p(generate_content_config[generate_content_config_key]['top_p'])
+
+        return global_config_object, image_generator_generate_content_config
 
     def _build_input_output_file_path_spec(self, global_config_object: GlobalConfig) -> InputOutputFilePathSpec:
         const_source_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', 'data', 'source')
@@ -135,8 +143,8 @@ class MainController:
         """
         Main task function to load config and perform image generation.
         """
-        (global_config_object, prompt) = self._get_global_config_and_prompt()
-        if not global_config_object or not prompt:
+        (global_config_object, image_generator_generate_content_config) = self._get_global_config_and_generate_content_config()
+        if not global_config_object or not image_generator_generate_content_config:
             return
         input_output_file_path_spec = self._build_and_show_input_output_file_path_spec(global_config_object)
         if not input_output_file_path_spec:
@@ -146,7 +154,7 @@ class MainController:
             return
         image_generator = ImageGeneratorForGemini()
         model_specific_config = global_config_object.config['gemini']
-        image_generator.do_generation(model_specific_config, prompt, input_output_file_path_spec)
+        image_generator.do_generation(model_specific_config, image_generator_generate_content_config, input_output_file_path_spec)
 
 
 def main():

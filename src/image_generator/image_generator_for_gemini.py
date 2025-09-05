@@ -13,6 +13,7 @@ from loguru import logger
 from PIL import Image
 from io import BytesIO
 
+from src.image_generator.image_generator_generate_content_config import ImageGeneratorGenerateContentConfig
 from src.image_generator.image_generator_base import ImageGeneratorBase
 from src.image_generator.input_output_file_path_spec import InputOutputFilePathSpec
 
@@ -70,7 +71,7 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
         self.extra_gemini_api_logger.init_logger()
         self.file_path_builder = FilePathBuilder()
 
-    def generate_one_batch_of_images(self, input_output_file_path_spec: InputOutputFilePathSpec, prompt: str) -> bool:
+    def generate_one_batch_of_images(self, input_output_file_path_spec: InputOutputFilePathSpec, image_generator_generate_content_config: ImageGeneratorGenerateContentConfig) -> bool:
         len_of_generation_request = len(input_output_file_path_spec.get_item_list())
         count = 0
         count_success = 0
@@ -82,7 +83,7 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
             r = self._generate_images_using_api_call(
                 item['input_file_path_list'],
                 item['output_file_path_list'],
-                prompt
+                image_generator_generate_content_config
             )
             logger.info(f"Image generation result: {r}")
             count += 1
@@ -97,14 +98,12 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
             logger.info(f"Among: {len_of_generation_request} So far... total requests: {count}, Success: {count_success}, Failure: {count_failure}")
         return True
 
-    def _get_generate_content_config(self):
+    def _get_generate_content_config(self, image_generator_generate_content_config: ImageGeneratorGenerateContentConfig):
         # As of 2025-09-03, a substring "IMAGE" in category is not supported yet.
         # i.e. please note that HARM_CATEGORY_IMAGE_HARASSMENT nor HARM_CATEGORY_IMAGE_SEXUALLY_EXPLICIT are not supported yet.
         # Instead, use text-related categories only.
         # For the latest information, please refer to: https://developers.generativeai.google/api/gemini/reference/rest/v1/models/generateContent
         generate_content_config = types.GenerateContentConfig(
-            temperature = 0.1,
-            top_p = 0.2,
             response_modalities = ["IMAGE"],
             safety_settings=[
                 types.SafetySetting(
@@ -125,9 +124,17 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
                 ),
             ],
         )
+        if image_generator_generate_content_config.get_temperature() is not None:
+            generate_content_config.temperature = image_generator_generate_content_config.get_temperature()
+        if image_generator_generate_content_config.get_top_p() is not None:
+            generate_content_config.top_p = image_generator_generate_content_config.get_top_p()
         return generate_content_config
 
     def _load_input_image_files(self, input_file_path_list_as_arg: list[str]) -> tuple[bool, list[Image.Image]]:
+        """
+        Load input image files from the specified file paths.
+        Returns a tuple (success: bool, list of Image objects or None).
+        """
         input_image_file_list = []
         for input_file_path in input_file_path_list_as_arg:
             try:
@@ -138,11 +145,11 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
             input_image_file_list.append(image_file)
         return (True, input_image_file_list)
 
-    def _generate_images_using_api_call(self, input_file_path_list_as_arg: list[str], output_file_path_list_as_arg: list[str], prompt: str) -> bool:
+    def _generate_images_using_api_call(self, input_file_path_list_as_arg: list[str], output_file_path_list_as_arg: list[str], image_generator_generate_content_config: ImageGeneratorGenerateContentConfig) -> bool:
         (result, input_image_file_list) = self._load_input_image_files(input_file_path_list_as_arg)
         if not result:
             return False
-        result = self._generate_and_write_output_images(prompt, input_image_file_list, input_file_path_list_as_arg, output_file_path_list_as_arg)
+        result = self._generate_and_write_output_images(image_generator_generate_content_config, input_image_file_list, input_file_path_list_as_arg, output_file_path_list_as_arg)
         return result
 
     def _log_gemini_api_call(self, prompt: str, config_for_generation: types.GenerateContentConfig, input_file_path_list: list[str], output_image_paths: list[str]) -> None:
@@ -157,13 +164,14 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
         string_to_log += f"\"{config_for_generation.top_p}\""
         logger.info(string_to_log)
 
-    def _generate_and_write_output_images(self, prompt: str, input_image_file_list: list[Image.Image], input_file_path_list_as_arg: list[str], output_file_path_list_as_arg: list[str]) -> bool:
+    def _generate_and_write_output_images(self, image_generator_generate_content_config: ImageGeneratorGenerateContentConfig, input_image_file_list: list[Image.Image], input_file_path_list_as_arg: list[str], output_file_path_list_as_arg: list[str]) -> bool:
 
         count_saved = 0
         try:
-            config_for_generation = self._get_generate_content_config()
+            config_for_generation = self._get_generate_content_config(image_generator_generate_content_config)
             const_model_name = "models/gemini-2.5-flash-image-preview"
             contents = []
+            prompt = image_generator_generate_content_config.get_prompt()
             contents.append(prompt)
             for image_file in input_image_file_list:
                 contents.append(image_file)
@@ -262,11 +270,11 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
             except IndexError:
                 break
 
-    def do_generation(self, model_specific_config: dict, prompt: str, input_output_file_path_spec: InputOutputFilePathSpec) -> bool:
+    def do_generation(self, model_specific_config: dict, image_generator_generate_content_config: ImageGeneratorGenerateContentConfig, input_output_file_path_spec: InputOutputFilePathSpec) -> bool:
         """
         Perform image generation using the Gemini API.
         """
         r = self._initialize_gemini_client(model_specific_config)
         if not r:
             return False
-        return self.generate_one_batch_of_images(input_output_file_path_spec, prompt)
+        return self.generate_one_batch_of_images(input_output_file_path_spec, image_generator_generate_content_config)

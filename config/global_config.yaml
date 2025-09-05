@@ -2,7 +2,7 @@ global:
     input_output_spec:
         # type: "pair_of_directories"  # "pair_of_directories" or "list_of_files"
         type: "single_directory"
-    # prompt_key: "gemini-costume-transfer"
-    prompt_key: "gemini-image-editing"
+    # generate_content_config_key: "gemini-costume-transfer"
+    generate_content_config_key: "gemini-image-editing"
 gemini:
     api_key: "YOUR GEMINI API KEY"
