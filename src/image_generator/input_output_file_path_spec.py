@@ -2,6 +2,7 @@
 Define InputOutputFilePathSpec class.
 """
 import os
+from loguru import logger
 
 
 class InputOutputFilePathSpec:
@@ -25,17 +26,15 @@ class InputOutputFilePathSpec:
         """
         Print the input and output file path specification.
         """
-        print("---")
-        print("[InputOutputFilePathSpec]")
-        print("[Input Files]")
+        logger.info("---")
+        logger.info("[InputOutputFilePathSpec]")
+        logger.info("[Input Files]")
         for item in self.item_list:
             for x in item['input_file_path_list']:
-                print(f"({os.path.basename(x)})", end=" ")
-            print("")
-        print("---")
-        print("[Output Files]")
+                logger.info(f"({os.path.basename(x)}) ")
+        logger.info("---")
+        logger.info("[Output Files]")
         for item in self.item_list:
             for x in item['output_file_path_list']:
-                print(f"({os.path.basename(x)})", end=" ")
-            print("")
-        print("---")
+                logger.info(f"({os.path.basename(x)}) ")
+        logger.info("---")

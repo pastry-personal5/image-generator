@@ -19,7 +19,10 @@ from src.image_generator.input_output_file_path_spec import InputOutputFilePathS
 
 
 def filter_log_message_for_gemini_api_call(record):
-    return "[GEMINI_API_CALL]" in record["message"]
+    if record.get("extra"):
+        return bool(record["extra"].get("gemini_api_call"))
+    else:
+        return False
 
 
 class Singleton(type):
@@ -102,7 +105,7 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
         # As of 2025-09-03, a substring "IMAGE" in category is not supported yet.
         # i.e. please note that HARM_CATEGORY_IMAGE_HARASSMENT nor HARM_CATEGORY_IMAGE_SEXUALLY_EXPLICIT are not supported yet.
         # Instead, use text-related categories only.
-        # For the latest information, please refer to: https://developers.generativeai.google/api/gemini/reference/rest/v1/models/generateContent
+        # For the latest information, please refer to: Official Gemini API document.
         generate_content_config = types.GenerateContentConfig(
             response_modalities = ["IMAGE"],
             safety_settings=[
@@ -130,7 +133,7 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
             generate_content_config.top_p = image_generator_generate_content_config.get_top_p()
         return generate_content_config
 
-    def _load_input_image_files(self, input_file_path_list_as_arg: list[str]) -> tuple[bool, list[Image.Image]]:
+    def _load_input_image_files(self, input_file_path_list_as_arg: list[str]) -> tuple[bool, list[Image.Image] | None]:
         """
         Load input image files from the specified file paths.
         Returns a tuple (success: bool, list of Image objects or None).
@@ -139,10 +142,12 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
         for input_file_path in input_file_path_list_as_arg:
             try:
                 image_file = Image.open(input_file_path)
+                image_file_copied = image_file.copy()
+                image_file.close()
             except (FileNotFoundError, OSError) as e:
                 logger.error(f"Failed to open image at {input_file_path}: {e}")
                 return (False, None)
-            input_image_file_list.append(image_file)
+            input_image_file_list.append(image_file_copied)
         return (True, input_image_file_list)
 
     def _generate_images_using_api_call(self, input_file_path_list_as_arg: list[str], output_file_path_list_as_arg: list[str], image_generator_generate_content_config: ImageGeneratorGenerateContentConfig) -> bool:
@@ -162,7 +167,7 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
         string_to_log += f"\"{prompt_to_log}\","
         string_to_log += f"\"{config_for_generation.temperature}\","
         string_to_log += f"\"{config_for_generation.top_p}\""
-        logger.info(string_to_log)
+        logger.info(string_to_log, extra={"gemini_api_call": True})
 
     def _generate_and_write_output_images(self, image_generator_generate_content_config: ImageGeneratorGenerateContentConfig, input_image_file_list: list[Image.Image], input_file_path_list_as_arg: list[str], output_file_path_list_as_arg: list[str]) -> bool:
 
@@ -212,6 +217,7 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
                         output_image_paths = output_image_path_list_of_list[index]
                         for output_image_path in output_image_paths:
                             image.save(output_image_path)
+                        image.close()
                         logger.info("Saved.")
                         self._log_gemini_api_call(prompt, config_for_generation, input_file_path_list_as_arg, output_image_paths)
                         count_saved += 1
@@ -228,7 +234,7 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
             return False
 
     def _show_response_info(self, response):
-        logger.info(f"Response: {response}")
+        logger.debug(f"Response: {response}")
         logger.info(f"Response type: {type(response)}")
         logger.info(f"Response candidates count: {len(response.candidates)}")
         for i, candidate in enumerate(response.candidates):
@@ -248,9 +254,9 @@ class ImageGeneratorForGemini(ImageGeneratorBase):
 
     def _initialize_gemini_client(self, gemini_config: dict) -> bool:
         if self.client is None:
-            api_key = gemini_config.get("api_key")
+            api_key = gemini_config.get("api_key") or os.getenv("GEMINI_API_KEY")
             if not api_key:
-                logger.error("Gemini API key is missing in the configuration.")
+                logger.error("Gemini API key is missing. Set it in config or GEMINI_API_KEY.")
                 return False
             self.client = genai.Client(api_key=api_key)
         return True

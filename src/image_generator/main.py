@@ -25,7 +25,7 @@ class GlobalConfigValidator:
 
     def validate(self, config: dict) -> bool:
         if 'global' not in config:
-            logger.error("Missing 'input_output_spec' in global config.")
+            logger.error("Missing 'global' in global config.")
             return False
         if 'input_output_spec' not in config['global']:
             logger.error("Missing 'input_output_spec' in global config.")
@@ -82,10 +82,8 @@ class MainController:
         """
         global_config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', 'config', 'global_config.yaml')
         global_config = self._load_config(global_config_path)
-        logger.info(f"Loaded global config: {global_config}")
         generate_content_config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', 'config', 'generate_content_config.yaml')
         generate_content_config = self._load_config(generate_content_config_path)
-        logger.info(f"Loaded prompt config: {generate_content_config}")
 
         global_config_object = GlobalConfig(global_config)
         if not global_config_object.validate():
@@ -161,9 +159,13 @@ class MainController:
         flag_continue = self._get_user_input_to_continue()
         if not flag_continue:
             return
-        image_generator = ImageGeneratorForGemini()
-        model_specific_config = global_config_object.config['gemini']
-        image_generator.do_generation(model_specific_config, image_generator_generate_content_config, input_output_file_path_spec)
+        if global_config_object.config.get('gemini'):
+            image_generator = ImageGeneratorForGemini()
+            model_specific_config = global_config_object.config['gemini']
+            image_generator.do_generation(model_specific_config, image_generator_generate_content_config, input_output_file_path_spec)
+        else:
+            logger.error("Gemini is not configured. Exiting.")
+            return
 
 
 def main():
